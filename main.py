@@ -2,6 +2,10 @@ import streamlit as st
 import os
 import base64
 from mistralai import Mistral
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 st.set_page_config(layout="wide", page_title="Mistral OCR App", page_icon="🖥️")
 st.title("Mistral OCR App")
@@ -11,11 +15,14 @@ with st.expander("Expand Me"):
     This application allows you to extract information from pdf/image based on Mistral OCR. Built by AI Anytime.
     """)
 
-# 1. API Key Input
-api_key = st.text_input("Enter your Mistral API Key", type="password")
+# Get API key from environment variable
+api_key = os.getenv("MISTRAL_API_KEY")
 if not api_key:
-    st.info("Please enter your API key to continue.")
+    st.error(
+        "MISTRAL_API_KEY not found in .env file. Please add your API key to the .env file.")
+    st.info("Add your API key to the .env file in the format: MISTRAL_API_KEY=your_api_key_here")
     st.stop()
+
 
 # Initialize session state variables for persistence
 if "ocr_result" not in st.session_state:
@@ -43,7 +50,8 @@ else:
     if file_type == "PDF":
         uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
     else:
-        uploaded_file = st.file_uploader("Upload an Image file", type=["jpg", "jpeg", "png"])
+        uploaded_file = st.file_uploader(
+            "Upload an Image file", type=["jpg", "jpeg", "png"])
 
 # 4. Process Button & OCR Handling
 if st.button("Process"):
@@ -85,7 +93,7 @@ if st.button("Process"):
                     "image_url": f"data:{mime_type};base64,{encoded_image}"
                 }
                 preview_src = f"data:{mime_type};base64,{encoded_image}"
-                st.session_state["image_bytes"] = file_bytes 
+                st.session_state["image_bytes"] = file_bytes
 
         with st.spinner("Processing the document..."):
             ocr_response = client.ocr.process(
@@ -112,7 +120,7 @@ if st.button("Process"):
 # 5. Display Preview and OCR Result if available
 if st.session_state["ocr_result"]:
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.subheader("Preview")
         if file_type == "PDF":
@@ -128,11 +136,12 @@ if st.session_state["ocr_result"]:
                 st.image(st.session_state["image_bytes"])
             else:
                 st.image(st.session_state["preview_src"])
-    
+
     with col2:
         st.subheader("OCR Result")
         st.write(st.session_state["ocr_result"])
         # Create a custom download link for OCR result
-        b64 = base64.b64encode(st.session_state["ocr_result"].encode()).decode()
+        b64 = base64.b64encode(
+            st.session_state["ocr_result"].encode()).decode()
         href = f'<a href="data:file/txt;base64,{b64}" download="ocr_result.txt">Download OCR Result</a>'
         st.markdown(href, unsafe_allow_html=True)
