@@ -72,8 +72,8 @@ if st.button("Process"):
                 file_bytes = uploaded_file.read()
                 encoded_pdf = base64.b64encode(file_bytes).decode("utf-8")
                 document = {
-                    "type": "document_base64",
-                    "document_base64": encoded_pdf
+                    "type": "document_url",
+                    "document_url": f"data:application/pdf;base64,{encoded_pdf}"
                 }
                 preview_src = f"data:application/pdf;base64,{encoded_pdf}"
         else:  # file_type == "Image"
@@ -95,26 +95,29 @@ if st.button("Process"):
                 st.session_state["image_bytes"] = file_bytes
 
         with st.spinner("Processing the document..."):
-            ocr_response = client.ocr.process(
-                model="mistral-ocr-latest",
-                document=document,
-                include_image_base64=True
-            )
-            # Extract OCR results by joining markdown from each OCRPageObject
             try:
-                if hasattr(ocr_response, "pages"):
-                    pages = ocr_response.pages
-                elif isinstance(ocr_response, list):
-                    pages = ocr_response
-                else:
-                    pages = []
-                result_text = "\n\n".join(page.markdown for page in pages)
-                if not result_text:
-                    result_text = "No result found."
+                ocr_response = client.ocr.process(
+                    model="mistral-ocr-latest",
+                    document=document
+                )
+                # Extract OCR results by joining markdown from each OCRPageObject
+                try:
+                    if hasattr(ocr_response, "pages"):
+                        pages = ocr_response.pages
+                    elif isinstance(ocr_response, list):
+                        pages = ocr_response
+                    else:
+                        pages = []
+                    result_text = "\n\n".join(page.markdown for page in pages)
+                    if not result_text:
+                        result_text = "No result found."
+                except Exception as e:
+                    result_text = f"Error extracting result: {e}"
+                st.session_state["ocr_result"] = result_text
+                st.session_state["preview_src"] = preview_src
             except Exception as e:
-                result_text = f"Error extracting result: {e}"
-            st.session_state["ocr_result"] = result_text
-            st.session_state["preview_src"] = preview_src
+                st.error(f"Error processing document: {str(e)}")
+                st.stop()
 
 # 5. Display Preview and OCR Result if available
 if st.session_state["ocr_result"]:
